@@ -39,16 +39,76 @@ Standard Markdown task lists:
 - Checkboxes inside code fences or blockquotes are ignored. Nested tasks each count once.
 - Percentages round down, so 100% means every task is done.
 
+## Requirements
+
+- Windows 10 19041+ / Windows 11, PowerToys with Command Palette **0.9 or later** (Dock support)
+- Claude Code projects that keep a `tasks/todo.md` (see [todo.md format](#todomd-format))
+
+## Installation
+
+### 1. Turn on the Dock
+
+1. Install or update [PowerToys](https://github.com/microsoft/PowerToys/releases) and make sure **Command Palette** is enabled in PowerToys Settings.
+2. Open Command Palette (default <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>) → **Settings** → **Dock (Preview)** → turn on **Enable Dock**.
+
+### 2. Download
+
+From the [latest release](https://github.com/xmsadik/claude-tasks-cmdpal/releases/latest) download:
+- `ClaudeTasksDev.cer`
+- the package for your CPU: `ClaudeTasks_<version>_x64.msix` (Intel/AMD) or `ClaudeTasks_<version>_arm64.msix` (Arm, e.g. Snapdragon). Not sure? Run `$env:PROCESSOR_ARCHITECTURE` in PowerShell: `AMD64` → x64, `ARM64` → arm64.
+
+### 3. Trust the certificate (once per machine)
+
+The package is signed with a self-signed certificate, so Windows has to be told to trust it. In **PowerShell as Administrator**, in the download folder:
+
+```powershell
+Import-Certificate .\ClaudeTasksDev.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+```
+
+### 4. Install
+
+In a normal PowerShell window (or double-click the `.msix` and choose *Install*):
+
+```powershell
+Add-AppxPackage .\ClaudeTasks_0.1.0.0_x64.msix
+```
+
+### 5. Show it in the Dock
+
+1. Open Command Palette and run **Reload** so it picks up the new extension.
+2. The *Claude Tasks* band usually appears in the Dock by itself. If it doesn't, search for **Claude Tasks** in Command Palette, open its context menu and run **Pin to Dock** (choose the side you like, e.g. *Right*).
+3. Click the band for the summary; **Browse all tasks** opens the full list. Settings: search **Claude Tasks** → *Settings*.
+
+### Update
+
+Download the newer `.msix` and run `Add-AppxPackage` again; the certificate step isn't needed again. Then **Reload** Command Palette.
+
+### Uninstall
+
+```powershell
+Get-AppxPackage ClaudeTasks | Remove-AppxPackage
+# optional, as Administrator: remove the trusted certificate
+Get-ChildItem Cert:\LocalMachine\TrustedPeople | Where-Object Subject -eq 'CN=ClaudeTasksDev' | Remove-Item
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `0x800B0109` / "the root certificate … is not trusted" on install | Step 3 was skipped or not run as Administrator. |
+| `0x80073CFB` / "a package with the same identity is already installed" | A development build is registered: `Get-AppxPackage ClaudeTasks \| Remove-AppxPackage`, then install again. |
+| Band doesn't appear | Check **Enable Dock** is on, run **Reload**, then use **Pin to Dock** as in step 5. |
+| Band shows `—` / *No tasks found* | No project with `tasks/todo.md` was found. Projects come from `~/.claude.json` and the **Extra scan roots** setting; add the parent folder of your projects there. |
+| A project is missing | It was never opened in Claude Code *from its own folder*. Add its parent folder to **Extra scan roots**. |
+| An unrelated folder shows up | It has a `tasks/todo.md` under a scan root. Narrow **Extra scan roots**. |
+| Clicking the band opens the palette instead of the flyout, or it stops updating | Command Palette host issues, see [Known host issues](#known-host-issues). **Reload** fixes both. |
+
 ## Settings
 
 Command Palette → *Claude Tasks* → *Settings*:
 - **Refresh interval**: 30 sec, 1, 2, 5 min (default 1 min). Only changed `todo.md` files are re-read.
 - **Extra scan roots**: `;`-separated folders, environment variables allowed.
 - **Show completed**: show finished projects and tasks (default on).
-
-## Requirements
-
-- Windows 10 19041+ / Windows 11, PowerToys with Command Palette **0.9 or later** (Dock support)
 
 ## Build from source
 
@@ -60,7 +120,7 @@ dotnet test tests\ClaudeTasks.Tests -p:Platform=x64      # unit tests
 .\scripts\dev-deploy.ps1 -Remove                         # unregister
 ```
 
-After deploying, run **Reload** in Command Palette. If the band does not appear by itself, add it from the Dock's edit mode.
+After deploying, run **Reload** in Command Palette. If the band does not appear by itself, use **Pin to Dock** (see [Installation](#5-show-it-in-the-dock)).
 
 ### MSIX package
 
@@ -68,12 +128,7 @@ After deploying, run **Reload** in Command Palette. If the band does not appear 
 .\scripts\pack.ps1 -Sign        # dist\...\ClaudeTasks_<ver>_x64.msix + dist\ClaudeTasksDev.cer
 ```
 
-The package is signed with a self-signed certificate (`CN=ClaudeTasksDev`). On each target machine, trust it once from an elevated prompt, then install:
-
-```powershell
-Import-Certificate .\ClaudeTasksDev.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
-Add-AppxPackage .\ClaudeTasks_0.1.0.0_x64.msix
-```
+`-Platform ARM64` builds the Arm package. The first `-Sign` run creates a self-signed `CN=ClaudeTasksDev` code-signing certificate in `Cert:\CurrentUser\My` and reuses it afterwards. Install the result as described in [Installation](#installation).
 
 ## Layout
 
